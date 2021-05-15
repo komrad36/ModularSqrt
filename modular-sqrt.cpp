@@ -404,7 +404,7 @@ bool SqrtModPrimePower(mpz_ptr ret, mpz_ptr retMod, mpz_srcptr a, mpz_srcptr p, 
             mpz_mod_2exp(y, y, i);
         }
 
-        // recover square root from inverse square root by sqrt(x) = 1/sqrt(x)
+        // recover square root from inverse square root by sqrt(x) = x/sqrt(x)
         mpz_mul(y, y, b);
         mpz_mod_2exp(y, y, k - 1);
         mpz_mul_2exp(y, y, e >> 1);
@@ -487,7 +487,7 @@ bool SqrtModPrimePower(mpz_ptr ret, mpz_ptr retMod, mpz_srcptr a, mpz_srcptr p, 
         mpz_mod(y, y, m);
     }
 
-    // recover square root from inverse square root by sqrt(x) = 1/sqrt(x)
+    // recover square root from inverse square root by sqrt(x) = x/sqrt(x)
     mpz_mul(y, y, b);
     mpz_pow_ui(m, p, k);
     mpz_mod(y, y, m);
