@@ -16,9 +16,7 @@ bool SqrtModPrimePower(mpz_ptr ret, mpz_ptr retMod, mpz_srcptr a, mpz_srcptr p, 
 ```
 
 ```cpp
-SqrtModComposite sqrtModComposite(a, n);
-
-for (mpz_srcptr sol : sqrtModComposite)
+ for (mpz_srcptr sol : SqrtModComposite(a, n))
 {
     // do stuff with sol
 }
