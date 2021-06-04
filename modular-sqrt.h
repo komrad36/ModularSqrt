@@ -86,10 +86,10 @@ bool SqrtModPrimePower(mpz_ptr ret, mpz_ptr retMod, mpz_srcptr a, mpz_srcptr p, 
 //
 // Usage:
 //
-//  for (mpz_srcptr sol : sqrtModComposite)
-//  {
-//      // do stuff with sol
-//  }
+// for (mpz_srcptr sol : SqrtModComposite(a, n))
+// {
+//     // do stuff with sol
+// }
 //
 class SqrtModComposite
 {
