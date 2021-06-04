@@ -1,9 +1,9 @@
 # ModularSqrt
-Fast modular square root of primes and prime powers, including 2. Interface uses GMP bigints.
+Fast modular square root, modulo ANY positive integer. Primes, including 2; prime powers; and composites are all supported with custom handling. Interface uses GMP bigints.
 
-Most implementations use slower approaches for at least some cases, or only support odd primes.
+Most implementations use slower approaches for at least some cases, or only support odd primes, or do not support composites, or do not support prime powers.
 
-Composites are not supported because that problem is a superset of large integer factorization, and a variable number of square roots must be returned. However, it would be simple to use, e.g., https://github.com/komrad36/EllipticCurveFactorization to first break the modulus into prime power factors, then use this library to separately compute the roots for each prime power, then use the Chinese Remainder Theorem (CRT) to combine them and reconstitute the overall roots.
+Computing a square root modulo a composite is a superset of integer factorization, so to enable that functionality, https://github.com/komrad36/EllipticCurveFactorization is required as a dependency.
 
 Usage:
 
@@ -13,4 +13,13 @@ bool SqrtModPrime(mpz_ptr ret, mpz_srcptr a, mpz_srcptr p);
 
 ```cpp
 bool SqrtModPrimePower(mpz_ptr ret, mpz_ptr retMod, mpz_srcptr a, mpz_srcptr p, uint64_t k);
+```
+
+```cpp
+SqrtModComposite sqrtModComposite(a, n);
+
+for (mpz_srcptr sol : sqrtModComposite)
+{
+    // do stuff with sol
+}
 ```
