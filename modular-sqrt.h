@@ -4,13 +4,24 @@
 *    kareem.h.omar@gmail.com
 *    https://github.com/komrad36
 *
-*    Last updated Mar 25, 2021
+*    Last updated Jun 3, 2021
 *******************************************************************/
 
 #pragma once
 
+
+// enabling this requires https://github.com/komrad36/EllipticCurveFactorization or equivalent,
+// because modular square root modulo a composite integer 'n' requires factoring 'n'.
+#define ALLOW_MODULAR_SQRT_OF_COMPOSITES
+
+
 #include <cstdint>
 #include <gmp.h>
+#include <vector>
+
+#ifdef ALLOW_MODULAR_SQRT_OF_COMPOSITES
+#include "factorize.h"
+#endif //ALLOW_MODULAR_SQRT_OF_COMPOSITES
 
 // computes square root of 'a' modulo any prime number 'p'
 // i.e. Sqrt(a) (mod p)
@@ -20,7 +31,7 @@
 //
 // 'ret' MUST be a valid, initialized mpz_t.
 //
-// if Sqrt(a) (mod p) does not exist, false is returned and 'ret' is undefined
+// if Sqrt(a) (mod p) does not exist, false is returned and 'ret' is undefined.
 //
 // if Sqrt(a) (mod p) does exist, true is returned and 'ret' is set to the SMALLEST valid solution.
 //
@@ -41,7 +52,7 @@ bool SqrtModPrime(mpz_ptr ret, mpz_srcptr a, mpz_srcptr p);
 //
 // 'k' must be >= 1, as otherwise, the modulus p^k is not a prime power.
 //
-// if Sqrt(a) (mod p^k) does not exist, false is returned, and 'ret' and 'retMod' are undefined
+// if Sqrt(a) (mod p^k) does not exist, false is returned, and 'ret' and 'retMod' are undefined.
 //
 // if Sqrt(a) (mod p^k) does exist, true is returned.
 // 'ret' is set to the SMALLEST valid solution
@@ -53,3 +64,119 @@ bool SqrtModPrime(mpz_ptr ret, mpz_srcptr a, mpz_srcptr p);
 // by the caller if desired, using -ret (mod retMod) == retMod - ret.
 //
 bool SqrtModPrimePower(mpz_ptr ret, mpz_ptr retMod, mpz_srcptr a, mpz_srcptr p, uint64_t k);
+
+#ifdef ALLOW_MODULAR_SQRT_OF_COMPOSITES
+
+// class that computes square root 'a' modulo any positive integer 'n', even composites
+// i.e. Sqrt(a) (mod n)
+//
+// because the number of solutions to such a problem can get very large very quickly,
+// this class is provided, allowing iteration through the solution space, as opposed to
+// returning a vector of ALL solutions.
+//
+// solutions are not traversed in any particular order.
+//
+// because modular square root modulo a composite integer 'n' requires factoring 'n'.
+//
+// the caller may provide an existing factorization:
+// SqrtModComposite(mpz_srcptr a, mpz_srcptr n, const std::vector<FactorInfo>& facN)
+//
+// or, if one is not provided, one will be computed automatically:
+// SqrtModComposite(mpz_srcptr a, mpz_srcptr n)
+//
+// Usage:
+//
+//  for (mpz_srcptr sol : sqrtModComposite)
+//  {
+//      // do stuff with sol
+//  }
+//
+class SqrtModComposite
+{
+private:
+    struct PartialSol
+    {
+        mpz_t m_s[2];
+        mpz_t m_n;
+    };
+
+    // forward decls
+    class FwdIterator;
+    class FwdIteratorEndSentinel;
+
+public:
+    SqrtModComposite(mpz_srcptr a, mpz_srcptr n) : m_a(a), m_n(n), m_computedFacN(Factorize(n)), m_facN(m_computedFacN)
+    {
+        Init();
+    }
+
+    SqrtModComposite(mpz_srcptr a, mpz_srcptr n, const std::vector<FactorInfo>& facN) : m_a(a), m_n(n), m_facN(facN)
+    {
+        Init();
+    }
+
+    ~SqrtModComposite();
+
+    FwdIterator begin()
+    {
+        return *this;
+    }
+
+    FwdIteratorEndSentinel end()
+    {
+        return FwdIteratorEndSentinel();
+    }
+
+private:
+    void Init();
+    void ComputeCurrentSol();
+    void Advance();
+
+    class FwdIteratorEndSentinel {};
+
+    class FwdIterator
+    {
+        friend class SqrtModComposite;
+
+        FwdIterator(SqrtModComposite& parent) : m_parent(parent) {}
+
+    public:
+        bool operator==(const SqrtModComposite::FwdIteratorEndSentinel&)
+        {
+            return m_parent.m_done;
+        }
+
+        bool operator!=(const SqrtModComposite::FwdIteratorEndSentinel&)
+        {
+            return !m_parent.m_done;
+        }
+
+        void operator++()
+        {
+            m_parent.Advance();
+        }
+
+        mpz_srcptr operator*() const
+        {
+            return m_parent.m_sol;
+        }
+
+    private:
+        SqrtModComposite& m_parent;
+    };
+
+private:
+    mpz_srcptr m_a;
+    mpz_srcptr m_n;
+    std::vector<FactorInfo> m_computedFacN;
+    const std::vector<FactorInfo>& m_facN;
+    std::vector<PartialSol> m_partialSols;
+    std::vector<uint64_t> m_counters;
+    mpz_t m_sol;
+    mpz_t m_b;
+    mpz_t m_t;
+    bool m_done;
+    bool m_partialSolsNeedCleanup;
+};
+
+#endif //ALLOW_MODULAR_SQRT_OF_COMPOSITES

@@ -4,7 +4,7 @@
 *    kareem.h.omar@gmail.com
 *    https://github.com/komrad36
 *
-*    Last updated Mar 25, 2021
+*    Last updated Jun 3, 2021
 *******************************************************************/
 
 #include "modular-sqrt.h"
@@ -324,6 +324,14 @@ bool SqrtModPrimePower(mpz_ptr ret, mpz_ptr retMod, mpz_srcptr a, mpz_srcptr p, 
 {
     ASSERT(k >= 1);
 
+    if (k == 1)
+    {
+        const bool exists = SqrtModPrime(ret, a, p);
+        if (exists)
+            mpz_set(retMod, p);
+        return exists;
+    }
+
     if (mpz_cmp_ui(p, 2) == 0)
     {
         // q = p^k
@@ -499,3 +507,159 @@ bool SqrtModPrimePower(mpz_ptr ret, mpz_ptr retMod, mpz_srcptr a, mpz_srcptr p, 
 
     return true;
 }
+
+#ifdef ALLOW_MODULAR_SQRT_OF_COMPOSITES
+
+void SqrtModComposite::Init()
+{
+    ASSERT(mpz_cmp_ui(m_n, 0) > 0);
+
+    mpz_init(m_sol);
+    mpz_init(m_b);
+    mpz_init(m_t);
+
+    m_done = false;
+    m_partialSolsNeedCleanup = true;
+
+    // compute partial sols m_s[0] and m_s[1] of sqrt(a) (both modulo m_n) for each nontrivial factor of n
+    // if at any point these do not exist, the overall solution does not exist either, and we return (empty) sols.
+    m_partialSols = std::vector<PartialSol>(m_facN.size(), PartialSol());
+
+    for (U64 i = 0; i < m_facN.size(); ++i)
+    {
+        const FactorInfo& info = m_facN[i];
+        if (info.m_exp == 0)
+            continue;
+
+        PartialSol& partialSol = m_partialSols[i];
+
+        mpz_init(partialSol.m_s[0]);
+        mpz_init(partialSol.m_s[1]);
+        mpz_init(partialSol.m_n);
+
+        if (!SqrtModPrimePower(partialSol.m_s[0], partialSol.m_n, m_a, info.m_factor, info.m_exp))
+        {
+            // no solutions exist
+
+            for (U64 j = 0; j <= i; ++j)
+            {
+                if (m_facN[j].m_exp)
+                {
+                    mpz_clear(m_partialSols[j].m_s[0]);
+                    mpz_clear(m_partialSols[j].m_s[1]);
+                    mpz_clear(m_partialSols[j].m_n);
+                }
+            }
+
+            m_done = true;
+            m_partialSolsNeedCleanup = false;
+            return;
+        }
+
+        if (mpz_cmp_ui(partialSol.m_s[0], 0) != 0)
+            mpz_sub(partialSol.m_s[1], partialSol.m_n, partialSol.m_s[0]);
+    }
+
+    // prepare counters for generating all possible composite solutions using Chinese Remainder Theorem
+    m_counters = std::vector<U64>(m_facN.size(), 0ULL);
+
+    ComputeCurrentSol();
+}
+
+void SqrtModComposite::ComputeCurrentSol()
+{
+    // m_sol = sum of contributions, one from each factor, for all permutations of all valid partial solutions:
+    // let a be the partial sol
+    // b = n / q (i.e. the product of all moduli except this one)
+    // then the contribution from this factor is a * b * b^-1 (mod q)
+
+    mpz_set_ui(m_sol, 0);
+
+    for (U64 i = 0; i < m_facN.size(); ++i)
+    {
+        if (m_facN[i].m_exp == 0)
+            continue;
+
+        mpz_pow_ui(m_t, m_facN[i].m_factor, m_facN[i].m_exp);
+        mpz_divexact(m_b, m_n, m_t);
+
+        const bool hasInverse = mpz_invert(m_t, m_b, m_t);
+        ASSERT(hasInverse);
+        static_cast<void>(hasInverse);
+        mpz_mul(m_b, m_b, m_t);
+
+        mpz_mul_ui(m_t, m_partialSols[i].m_n, m_counters[i] >> 1);
+        mpz_add(m_t, m_t, m_partialSols[i].m_s[m_counters[i] & 1]);
+
+        mpz_addmul(m_sol, m_t, m_b);
+    }
+
+    mpz_mod(m_sol, m_sol, m_n);
+}
+
+void SqrtModComposite::Advance()
+{
+    // if we have no counters (e.g. because n == 1), we're done.
+    if (m_facN.empty())
+    {
+        m_done = true;
+        return;
+    }
+
+    // move to next permutation
+    for (U64 i = 0;;)
+    {
+        if (m_facN[i].m_exp)
+        {
+            // increment counter
+            m_counters[i] += mpz_cmp(m_partialSols[i].m_s[0], m_partialSols[i].m_s[1]) == 0 ? 2 : 1;
+
+            mpz_mul_ui(m_b, m_partialSols[i].m_n, m_counters[i] >> 1);
+            mpz_pow_ui(m_t, m_facN[i].m_factor, m_facN[i].m_exp);
+
+            // if not too large, we're done incrementing. break out and process permutation
+            if (mpz_cmp(m_b, m_t) < 0)
+                break;
+
+            // otherwise, cycle counter back to 0
+            m_counters[i] = 0;
+        }
+
+        // advance to next counter
+        ++i;
+
+        // if we're out of counters, we're done with all solutions.
+        if (i >= m_facN.size())
+        {
+            m_done = true;
+            return;
+        }
+    }
+
+    ComputeCurrentSol();
+}
+
+SqrtModComposite::~SqrtModComposite()
+{
+    if (m_partialSolsNeedCleanup)
+    {
+        for (U64 i = 0; i < m_facN.size(); ++i)
+        {
+            if (m_facN[i].m_exp)
+            {
+                mpz_clear(m_partialSols[i].m_s[0]);
+                mpz_clear(m_partialSols[i].m_s[1]);
+                mpz_clear(m_partialSols[i].m_n);
+            }
+        }
+    }
+
+    for (FactorInfo& info : m_computedFacN)
+        mpz_clear(info.m_factor);
+
+    mpz_clear(m_sol);
+    mpz_clear(m_b);
+    mpz_clear(m_t);
+}
+
+#endif //ALLOW_MODULAR_SQRT_OF_COMPOSITES
