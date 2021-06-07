@@ -1,7 +1,7 @@
 # ModularSqrt
 Fast modular square root, modulo ANY positive integer. Primes, including 2; prime powers; and composites are all supported with custom handling. Interface uses GMP bigints.
 
-Most implementations use slower approaches for at least some cases, or only support odd primes, or do not support composites, or do not support prime powers.
+Most implementations use slower approaches for at least some cases, or only support odd primes, or do not support prime powers, or do not support composites.
 
 Computing a square root modulo a composite is a superset of integer factorization, so to enable that functionality, https://github.com/komrad36/EllipticCurveFactorization is required as a dependency.
 

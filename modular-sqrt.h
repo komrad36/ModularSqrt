@@ -76,8 +76,6 @@ bool SqrtModPrimePower(mpz_ptr ret, mpz_ptr retMod, mpz_srcptr a, mpz_srcptr p, 
 //
 // solutions are not traversed in any particular order.
 //
-// because modular square root modulo a composite integer 'n' requires factoring 'n'.
-//
 // the caller may provide an existing factorization:
 // SqrtModComposite(mpz_srcptr a, mpz_srcptr n, const std::vector<FactorInfo>& facN)
 //
