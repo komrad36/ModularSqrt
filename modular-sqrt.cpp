@@ -4,7 +4,7 @@
 *    kareem.h.omar@gmail.com
 *    https://github.com/komrad36
 *
-*    Last updated Jun 3, 2021
+*    Last updated Jun 22, 2021
 *******************************************************************/
 
 #include "modular-sqrt.h"
