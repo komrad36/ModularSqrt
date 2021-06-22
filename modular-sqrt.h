@@ -174,7 +174,6 @@ private:
     mpz_t m_b;
     mpz_t m_t;
     bool m_done;
-    bool m_partialSolsNeedCleanup;
 };
 
 #endif //ALLOW_MODULAR_SQRT_OF_COMPOSITES

@@ -519,14 +519,13 @@ void SqrtModComposite::Init()
     mpz_init(m_t);
 
     m_done = false;
-    m_partialSolsNeedCleanup = true;
 
     // compute partial sols m_s[0] and m_s[1] of sqrt(a) (both modulo m_n) for each nontrivial factor of n
     // if at any point these do not exist, the overall solution does not exist either, and we return (empty) sols.
-    m_partialSols = std::vector<PartialSol>(m_facN.size(), PartialSol());
-
     for (U64 i = 0; i < m_facN.size(); ++i)
     {
+        m_partialSols.emplace_back();
+
         const FactorInfo& info = m_facN[i];
         if (info.m_exp == 0)
             continue;
@@ -539,20 +538,8 @@ void SqrtModComposite::Init()
 
         if (!SqrtModPrimePower(partialSol.m_s[0], partialSol.m_n, m_a, info.m_factor, info.m_exp))
         {
-            // no solutions exist
-
-            for (U64 j = 0; j <= i; ++j)
-            {
-                if (m_facN[j].m_exp)
-                {
-                    mpz_clear(m_partialSols[j].m_s[0]);
-                    mpz_clear(m_partialSols[j].m_s[1]);
-                    mpz_clear(m_partialSols[j].m_n);
-                }
-            }
-
+            // no solution
             m_done = true;
-            m_partialSolsNeedCleanup = false;
             return;
         }
 
@@ -641,16 +628,13 @@ void SqrtModComposite::Advance()
 
 SqrtModComposite::~SqrtModComposite()
 {
-    if (m_partialSolsNeedCleanup)
+    for (U64 i = 0; i < m_partialSols.size(); ++i)
     {
-        for (U64 i = 0; i < m_facN.size(); ++i)
+        if (m_facN[i].m_exp)
         {
-            if (m_facN[i].m_exp)
-            {
-                mpz_clear(m_partialSols[i].m_s[0]);
-                mpz_clear(m_partialSols[i].m_s[1]);
-                mpz_clear(m_partialSols[i].m_n);
-            }
+            mpz_clear(m_partialSols[i].m_s[0]);
+            mpz_clear(m_partialSols[i].m_s[1]);
+            mpz_clear(m_partialSols[i].m_n);
         }
     }
 
